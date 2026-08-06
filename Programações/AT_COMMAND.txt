@@ -1,0 +1,25 @@
+#include <SoftwareSerial.h>
+
+// SoftwareSerial(RX, TX)
+SoftwareSerial BT(3, 2);  // RX = 3, TX = 2
+
+void setup() {
+  Serial.begin(9600);  
+  BT.begin(38400);      
+
+  Serial.println("HC-05 AT Command Mode Ready");
+  Serial.println("Type AT commands below:");
+}
+
+void loop() {
+
+  if (Serial.available()) {
+    char c = Serial.read();
+    BT.write(c);
+  }
+
+  if (BT.available()) {
+    char c = BT.read();
+    Serial.write(c);
+  }
+}

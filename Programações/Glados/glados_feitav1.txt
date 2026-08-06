@@ -1,0 +1,273 @@
+import cv2
+import threading
+import flask_app
+import mediapipe as mp
+import serial
+import time
+import os
+import subprocess
+
+
+PASTA_AUDIOS = "falas_atualizadas"
+
+
+def aquecer_audio():
+    print("Aquecendo JBL...")
+
+    processo = subprocess.Popen(
+        ["pw-play", os.path.join(PASTA_AUDIOS, "silencio.wav")],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    processo.wait()
+
+    time.sleep(1)
+
+    print("JBL pronta!")
+
+
+def tocar_audio(nome):
+    caminho = os.path.join(PASTA_AUDIOS, nome)
+
+    print(f"Tocando {nome}")
+
+    processo = subprocess.Popen(
+        ["pw-play", caminho],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    processo.wait()
+
+
+
+
+
+# ==========================
+
+# CONFIGURAÇÃO DO ARDUINO
+
+# ==========================
+
+
+
+try:
+
+    ser = serial.Serial('/dev/ttyUSB0', 115200 , timeout=1)
+
+    time.sleep(2)
+
+    print("Arduino conectado com sucesso!")
+
+except Exception as e:
+
+    print(f"Rodando sem Arduino. Erro: {e}")
+
+    ser = None
+
+
+
+def enviar_comando(comando):
+    if not ser:
+        print(comando)
+        return
+
+    print(">>", comando)
+
+    #ser.reset_input_buffer()
+    ser.write((comando + "\n").encode())
+    ser.flush()
+
+    while True:
+        resposta = ser.readline().decode(errors="ignore").strip()
+
+        if resposta:
+            print("Recebido:", repr(resposta))
+
+        if resposta == "Concluído.":
+            break
+
+
+def executar_apresentacao():
+
+    enviar_comando("NEMA 3500 1200 D")
+    enviar_comando("EV3 8000 D")
+
+    tocar_audio("1.wav")
+    time.sleep(1)
+
+    enviar_comando("NEMA 1500 1200 E")
+    enviar_comando("EV3 5000 D")
+
+    tocar_audio("ap_f.wav")
+    time.sleep(3)
+
+    enviar_comando("NEMA 3000 1200 D")
+
+    tocar_audio("3.wav")
+    time.sleep(3)
+
+    tocar_audio("4.wav")
+
+    enviar_comando("EV3 1000 E")
+
+    tocar_audio("5.wav")
+    time.sleep(5)
+
+    enviar_comando("EV3 2500 D")
+
+    tocar_audio("6.wav")
+    time.sleep(4)
+
+    tocar_audio("7.wav")
+    time.sleep(30)
+
+    enviar_comando("NEMA 2000 1200 E")
+
+    tocar_audio("8.wav")
+    time.sleep(5)
+
+    tocar_audio("fim_ap.wav")
+    enviar_comando("EV3 5000 E")
+    enviar_comando("NEMA 2000 1200 E")
+
+
+    print("Fim da apresentação!")
+
+
+# ==========================
+
+# MEDIAPIPE
+
+# ==========================
+
+
+
+mp_hands = mp.solutions.hands
+
+mp_draw = mp.solutions.drawing_utils
+
+
+
+cap = cv2.VideoCapture(0)
+
+
+
+# ==========================
+
+# INICIA O SERVIDOR FLASK
+
+# ==========================
+
+
+
+threading.Thread(
+
+    target=flask_app.app.run,
+
+    kwargs={
+
+        "host": "0.0.0.0",
+
+        "port": 5000,
+
+        "debug": False,
+
+        "use_reloader": False
+
+    },
+
+    daemon=True
+
+).start()
+
+
+
+
+
+print("Sistema iniciado!")
+
+
+with mp_hands.Hands(
+    min_detection_confidence=0.6,
+    min_tracking_confidence=0.6
+) as hands:
+        
+        while cap.isOpened():
+
+            ret, frame = cap.read()
+
+            if not ret:
+                print("Erro ao capturar imagem.")
+                break
+
+            frame = cv2.flip(frame, 1)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            results = hands.process(rgb)
+
+            if results.multi_hand_landmarks:
+
+                for hand_landmarks in results.multi_hand_landmarks:
+
+                    mp_draw.draw_landmarks(
+                        frame,
+                        hand_landmarks,
+                        mp_hands.HAND_CONNECTIONS
+                    )
+
+                    ponta_indicador = hand_landmarks.landmark[8].y
+                    ponta_medio = hand_landmarks.landmark[12].y
+                    ponta_anelar = hand_landmarks.landmark[16].y
+                    ponta_minimo = hand_landmarks.landmark[20].y
+
+                    base_indicador = hand_landmarks.landmark[6].y
+                    base_medio = hand_landmarks.landmark[10].y
+                    base_anelar = hand_landmarks.landmark[14].y
+                    base_minimo = hand_landmarks.landmark[18].y
+
+                    if (
+                        ponta_indicador < base_indicador and
+                        ponta_medio < base_medio and
+                        ponta_anelar < base_anelar and
+                        ponta_minimo < base_minimo
+                    ):
+
+                        print("Mão aberta detectada!")
+
+                        cap.release()
+                        cv2.destroyAllWindows()
+
+                        executar_apresentacao()
+
+                        if ser:
+                            ser.close()
+
+                        exit()
+
+            cv2.putText(
+                frame,
+                "AGUARDANDO MAO ABERTA",
+                (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2
+            )
+
+            flask_app.frame_global = frame.copy()
+
+            time.sleep(0.001)
+
+
+# FINALIZAÇÃO
+
+# ==========================
+
+cap.release()
+
+if ser:
+    ser.close()
+
+cv2.destroyAllWindows()

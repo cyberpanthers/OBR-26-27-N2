@@ -1,0 +1,38 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial BT(2, 3); // RX, TX
+
+Servo liberador;
+
+int SEGURA = 95;
+int SOLTA = 180;
+
+void setup() {
+
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  liberador.attach(8);
+
+  liberador.write(SEGURA);
+}
+
+void loop() {
+
+  if (BT.available()) {
+
+    String comando = BT.readStringUntil('\n');
+    comando.trim();
+
+    if (comando == "B") {
+
+      Serial.println("Soltando cubo");
+
+      liberador.write(SOLTA);
+      delay(2000);
+
+      liberador.write(SEGURA);
+    }
+  }
+}

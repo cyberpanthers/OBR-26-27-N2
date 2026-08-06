@@ -1,0 +1,94 @@
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+#define TX_PIN 4
+SoftwareSerial Link(3, TX_PIN);   // RX não usado, TX = D4
+
+#define LED_PIN 5
+#define NUM_LEDS 87
+
+Adafruit_NeoPixel fita(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+const int trigPin = 7;
+const int echoPin = 6;
+
+bool enviado = false;
+
+float distancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH, 30000);
+
+  if (duracao == 0) return 999;
+
+  return duracao * 0.0343 / 2;
+}
+
+
+
+void acenderFita() {
+
+  // Acende um por um
+  for (int i = 0; i < NUM_LEDS; i++) {
+    fita.setPixelColor(i, fita.Color(255, 0, 0));
+    fita.show();
+    delay(25);
+  }
+
+  // Envia o sinal
+  Link.write('A');
+
+  unsigned long inicio = millis();
+
+  // Pisca por 10 segundos (mais devagar)
+  while (millis() - inicio < 10000) {
+
+    for (int i = 0; i < NUM_LEDS; i++)
+      fita.setPixelColor(i, fita.Color(0, 0, 255));
+    fita.show();
+    delay(500);
+
+    for (int i = 0; i < NUM_LEDS; i++)
+      fita.setPixelColor(i, fita.Color(255, 0, 0));
+    fita.show();
+    delay(500);
+  }
+
+  // Apaga a fita
+  fita.clear();
+  fita.show();
+}
+
+void apagarFita() {
+  fita.clear();
+  fita.show();
+}
+
+void setup() {
+  Link.begin(9600);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  fita.begin();
+  fita.clear();
+  fita.show();
+}
+
+void loop() {
+
+  float dist = distancia();
+
+  if (dist <= 10 && !enviado) {
+    enviado = true;
+    acenderFita();
+  }
+
+  delay(100);
+}

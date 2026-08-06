@@ -1,0 +1,118 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+SoftwareSerial BT(2, 3); // RX, TX
+
+int ldr = A0;
+int sensibilidade = 240;
+int val = 0;
+
+Servo motor;
+
+int STOP = 87;
+int GIRA = 0;
+
+const int trigPin = 8;
+const int echoPin = 9;
+
+// Bluetooth
+const int statePin = 5;
+const int ledPin = 4;
+
+bool sinalPendente = false;
+
+#define PINO_FITA 12
+#define NUM_LEDS 100
+
+Adafruit_NeoPixel fita(NUM_LEDS, PINO_FITA, NEO_GRB + NEO_KHZ800);
+
+float distancia() {
+
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH);
+
+  return duracao * 0.034 / 2;
+}
+
+void setup() {
+
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  pinMode(ldr, INPUT);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  pinMode(statePin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+  motor.attach(6);
+  motor.write(STOP);
+
+  fita.begin();
+  fita.clear();
+  fita.show();
+
+  Serial.println("Sistema iniciado");
+}
+
+void loop() {
+
+  digitalWrite(ledPin, digitalRead(statePin));
+
+  if (sinalPendente && digitalRead(statePin) == HIGH) {
+    BT.println("B");
+    Serial.println("Bluetooth conectado - sinal B enviado");
+    sinalPendente = false;
+  }
+
+  val = analogRead(ldr);
+  Serial.println(val);
+
+  // =========================
+  // PORTAL ABRIU
+  // =========================
+  if (val > sensibilidade) {
+
+    Serial.println("Portal 1 aberto");
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+      fita.setPixelColor(i, fita.Color(0, 0, 255));
+    }
+    fita.show();
+
+    motor.write(GIRA);
+    delay(1000);
+    motor.write(STOP);
+
+    Serial.println("Aguardando cubo...");
+
+    while (distancia() > 5) {
+      delay(10);
+    }
+
+    Serial.println("Cubo detectado");
+
+    if (digitalRead(statePin) == HIGH) {
+      BT.println("B");
+    } else {
+      sinalPendente = true;
+    }
+
+    while (analogRead(ldr) > sensibilidade) {
+      delay(100);
+    }
+
+  }
+
+  delay(100);
+}

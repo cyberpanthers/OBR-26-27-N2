@@ -1,0 +1,167 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+SoftwareSerial BT(2, 3); // RX, TX
+
+// LDR
+int ldr = A0;
+int sensibilidade = 350;
+int val = 0;
+
+// Servo do portal
+Servo motor;
+int STOP = 91;
+int GIRA = 180;
+
+// Ponte H (Canal B)
+const int IN1 = 11;
+const int IN2 = 10;
+
+// Sensor ultrassônico
+const int trigPin = 8;
+const int echoPin = 9;
+
+// Bluetooth
+const int statePin = 5;
+const int ledPin = 4;
+
+bool sinalPendente = false;
+
+// Fita de LED
+#define PINO_FITA 12
+#define NUM_LEDS 100
+
+Adafruit_NeoPixel fita(NUM_LEDS, PINO_FITA, NEO_GRB + NEO_KHZ800);
+
+//--------------------------------------------------
+
+float distancia() {
+
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH);
+
+  return duracao * 0.034 / 2.0;
+}
+
+//--------------------------------------------------
+
+void setup() {
+
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  pinMode(ldr, INPUT);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  pinMode(statePin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+  // Servo
+  motor.attach(6);
+  motor.write(STOP);
+
+  // Ponte H
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+
+  // Motor parado
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+
+  // Fita de LED
+  fita.begin();
+  fita.clear();
+  fita.show();
+
+  Serial.println("Sistema iniciado");
+}
+
+//--------------------------------------------------
+
+void loop() {
+
+  // LED indica conexão Bluetooth
+  digitalWrite(ledPin, digitalRead(statePin));
+
+  // Envia sinal pendente quando conectar
+  if (sinalPendente && digitalRead(statePin) == HIGH) {
+    BT.println("B");
+    Serial.println("Bluetooth conectado - sinal B enviado");
+    sinalPendente = false;
+  }
+
+  val = analogRead(ldr);
+  Serial.println(val);
+
+  //=========================
+  // PORTAL ABERTO
+  //=========================
+  if (val > sensibilidade) {
+
+    Serial.println("Portal aberto");
+
+    // Acende a fita em azul
+    for (int i = 0; i < NUM_LEDS; i++) {
+      fita.setPixelColor(i, fita.Color(0, 0, 255));
+    }
+    fita.show();
+
+    // Abre o portal com o servo
+    motor.write(GIRA);
+    delay(2000);
+    motor.write(STOP);
+
+    Serial.println("Esperando 10 segundos...");
+    delay(10000);
+
+    // Liga a cremalheira
+    Serial.println("Cremalheira em movimento");
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+
+    // Espera o cubo
+    while (true) {
+
+      float d = distancia();
+      Serial.print("Distancia: ");
+      Serial.println(d);
+
+      if (d <= 5) {
+
+        // Para a cremalheira imediatamente
+        digitalWrite(IN1, LOW);
+        digitalWrite(IN2, LOW);
+
+        Serial.println("Cubo detectado - Cremalheira parada");
+        break;
+      }
+
+      delay(10);
+    }
+
+    // Envia Bluetooth
+    if (digitalRead(statePin) == HIGH) {
+      BT.println("B");
+    } else {
+      sinalPendente = true;
+    }
+
+    // Aguarda o portal fechar
+    while (analogRead(ldr) > sensibilidade) {
+      delay(100);
+    }
+
+  }
+
+  delay(100);
+}

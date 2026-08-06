@@ -1,0 +1,59 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial Link(2, 6);   // RX (não usado), TX = D6
+
+#define led 5
+
+const int trigPin = 8;
+const int echoPin = 9;
+
+bool enviado = false;
+
+float distancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH, 30000);
+
+  if (duracao == 0) return 999;
+
+  return duracao * 0.0343 / 2;
+}
+
+void setup() {
+
+  Link.begin(9600);
+
+  pinMode(led, OUTPUT);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+}
+
+void loop() {
+
+  float dist = distancia();
+
+  if (dist <= 5 && !enviado) {
+
+    Link.write('A');
+
+    digitalWrite(led, HIGH);
+
+    enviado = true;
+  }
+
+  if (dist > 10) {
+
+    enviado = false;
+
+    digitalWrite(led, LOW);
+  }
+
+  delay(100);
+}

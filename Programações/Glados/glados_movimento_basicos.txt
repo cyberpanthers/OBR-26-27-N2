@@ -1,0 +1,118 @@
+// ==========================================================
+// PINOS DA CNC SHIELD - MOTOR NEMA
+// ==========================================================
+const int pinoStepZ = 4;
+const int pinoDirZ = 7;
+const int pinoEnable = 8;
+
+// ==========================================================
+// PINOS DA PONTE H - MOTOR EV3
+// ==========================================================
+const int pinoIN1_EV3 = 12;
+const int pinoIN2_EV3 = 13;
+
+// ==========================================================
+// CONSTANTES
+// ==========================================================
+
+const bool ESQUERDA = HIGH;
+const bool DIREITA = LOW;
+
+// Quanto MENOR o valor, mais rápido o NEMA.
+const int LENTO = 4000;
+const int MEDIO = 2500;
+const int RAPIDO = 1200;
+
+// ==========================================================
+// FUNÇÕES DO NEMA
+// ==========================================================
+
+void moverNema(int passos, bool direcao, int velocidade)
+{
+    digitalWrite(pinoDirZ, direcao);
+
+    for (int i = 0; i < passos; i++)
+    {
+        digitalWrite(pinoStepZ, HIGH);
+        delayMicroseconds(10);
+
+        digitalWrite(pinoStepZ, LOW);
+        delayMicroseconds(velocidade);
+    }
+}
+
+// ==========================================================
+// FUNÇÕES DO EV3
+// ==========================================================
+
+void frenteEV3()
+{
+    digitalWrite(pinoIN1_EV3, HIGH);
+    digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void trasEV3()
+{
+    digitalWrite(pinoIN1_EV3, LOW);
+    digitalWrite(pinoIN2_EV3, HIGH);
+}
+
+void pararEV3()
+{
+    digitalWrite(pinoIN1_EV3, LOW);
+    digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void moverEV3(bool direcao, int tempo)
+{
+    if (direcao == DIREITA)
+        frenteEV3();
+    else
+        trasEV3();
+
+    delay(tempo);
+
+    pararEV3();
+}
+
+// ==========================================================
+// OUTRAS FUNÇÕES
+// ==========================================================
+
+void esperar(int tempo)
+{
+    delay(tempo);
+}
+
+// ==========================================================
+// SETUP
+// ==========================================================
+
+void setup()
+{
+    pinMode(pinoStepZ, OUTPUT);
+    pinMode(pinoDirZ, OUTPUT);
+    pinMode(pinoEnable, OUTPUT);
+
+    digitalWrite(pinoEnable, LOW);
+
+    pinMode(pinoIN1_EV3, OUTPUT);
+    pinMode(pinoIN2_EV3, OUTPUT);
+
+    pararEV3();
+}
+
+// ==========================================================
+// LOOP
+// ==============c:\Users\Espaço Maker - 01\Downloads\BOTAO_SLAVE.ino c:\Users\Espaço Maker - 01\Downloads\BOTAO_MASTER.in============================================
+
+void loop()
+{
+    // ---------- EXEMPLO DE SEQUÊNCIA ----------
+
+    moverNema(500, DIREITA, LENTO);
+
+    esperar(1000);
+
+    moverEV3(DIREITA, 3000);
+}

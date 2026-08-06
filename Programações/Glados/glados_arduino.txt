@@ -1,0 +1,211 @@
+// ==========================================================
+// PINOS DA CNC SHIELD - MOTOR NEMA
+// ==========================================================
+const int pinoStepZ = 4;
+const int pinoDirZ = 7;
+const int pinoEnable = 8;
+
+// ==========================================================
+// PINOS DA PONTE H - MOTOR EV3
+// ==========================================================
+const int pinoIN1_EV3 = 12;
+const int pinoIN2_EV3 = 13;
+
+// ==========================================================
+// CONSTANTES
+// ==========================================================
+
+const bool ESQUERDA = HIGH;
+const bool DIREITA = LOW;
+
+// Quanto MENOR o valor, mais rápido o NEMA.
+const int LENTO = 4000;
+const int MEDIO = 2500;
+const int RAPIDO = 1200;
+
+// ==========================================================
+// FUNÇÕES DO NEMA
+// ==========================================================
+
+void moverNema(int passos, bool direcao, int velocidade)
+{
+    digitalWrite(pinoDirZ, direcao);
+
+    for (int i = 0; i < passos; i++)
+    {
+        digitalWrite(pinoStepZ, HIGH);
+        delayMicroseconds(10);
+
+        digitalWrite(pinoStepZ, LOW);
+        delayMicroseconds(velocidade);
+    }
+}
+
+// ==========================================================
+// FUNÇÕES DO EV3
+// ==========================================================
+
+void frenteEV3()
+{
+    digitalWrite(pinoIN1_EV3, HIGH);
+    digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void trasEV3()
+{
+    digitalWrite(pinoIN1_EV3, LOW);
+    digitalWrite(pinoIN2_EV3, HIGH);
+}
+
+void pararEV3()
+{
+    digitalWrite(pinoIN1_EV3, LOW);
+    digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void moverEV3(bool direcao, int tempo)
+{
+    if (direcao == DIREITA)
+        frenteEV3();
+    else
+        trasEV3();
+
+    delay(tempo);
+
+    pararEV3();
+}
+
+// ==========================================================
+// OUTRAS FUNÇÕES
+// ==========================================================
+
+void esperar(int tempo)
+{
+    delay(tempo);
+}
+
+// ==========================================================
+// SETUP
+// ==========================================================
+
+void setup()
+{
+    pinMode(pinoStepZ, OUTPUT);
+    pinMode(pinoDirZ, OUTPUT);
+    pinMode(pinoEnable, OUTPUT);
+
+    digitalWrite(pinoEnable, LOW);
+
+    pinMode(pinoIN1_EV3, OUTPUT);
+    pinMode(pinoIN2_EV3, OUTPUT);
+
+    pararEV3();
+
+    Serial.begin(115200);
+
+    Serial.println("=== Controle de Motores ===");
+    Serial.println("Comandos:");
+    Serial.println("NEMA passos velocidade D/E");
+    Serial.println("Ex: NEMA 1000 1200 D");
+    Serial.println("EV3 tempo D/E");
+    Serial.println("Ex: EV3 3000 E");
+}
+
+// ==========================================================
+// LOOP
+// ==============c:\Users\Espaço Maker - 01\Downloads\BOTAO_SLAVE.ino c:\Users\Espaço Maker - 01\Downloads\BOTAO_MASTER.in============================================
+
+void loop()
+{
+    if (!Serial.available())
+        return;
+
+    String comando = Serial.readStringUntil('\n');
+    comando.trim();
+
+    //======================================================
+    // ETAPA 1
+    //======================================================
+
+    if (comando == "1")
+    {
+        Serial.println("ETAPA 1");
+
+        moverNema(3000, DIREITA, 1200);
+        esperar(300);
+
+        moverEV3(DIREITA, 4000);
+    }
+
+    //======================================================
+    // ETAPA 2
+    //======================================================
+
+    else if (comando == "2")
+    {
+        Serial.println("ETAPA 2");
+
+        moverNema(1000, ESQUERDA, 1200);
+    }
+
+    //======================================================
+    // ETAPA 3
+    //======================================================
+
+    else if (comando == "3")
+    {
+        Serial.println("ETAPA 3");
+
+        moverNema(1500, DIREITA, 1200);
+        esperar(300);
+
+        moverEV3(ESQUERDA, 1000);
+    }
+
+    //======================================================
+    // ETAPA 4
+    //======================================================
+
+    else if (comando == "4")
+    {
+        Serial.println("ETAPA 4");
+
+        moverNema(1000, ESQUERDA, 1200);
+        esperar(300);
+
+        moverEV3(DIREITA, 1500);
+    }
+
+    //======================================================
+    // COMANDOS MANUAIS (mantidos)
+    //======================================================
+
+    else if (comando.startsWith("NEMA"))
+    {
+        int passos, velocidade;
+        char dir;
+
+        sscanf(comando.c_str(), "NEMA %d %d %c", &passos, &velocidade, &dir);
+
+        bool direcao = (dir == 'D') ? DIREITA : ESQUERDA;
+
+        moverNema(passos, direcao, velocidade);
+    }
+
+    else if (comando.startsWith("EV3"))
+    {
+        int tempo;
+        char dir;
+
+        sscanf(comando.c_str(), "EV3 %d %c", &tempo, &dir);
+
+        bool direcao = (dir == 'D') ? DIREITA : ESQUERDA;
+
+        moverEV3(direcao, tempo);
+    }
+
+    else
+    {
+        Serial.println("Comando inválido.");
+    }
+}

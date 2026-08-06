@@ -1,0 +1,77 @@
+#include <Servo.h>
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+SoftwareSerial BT(2, 3); // RX, TX
+Servo liberador;
+
+const int SEGURA = 95;
+const int SOLTA = 180;
+
+// LDR
+const int sensorLuz = A0;
+const int limiteLuz = 240;
+
+// Fita LED
+#define PINO_FITA 12
+#define NUM_LEDS 100
+
+Adafruit_NeoPixel fita(NUM_LEDS, PINO_FITA, NEO_GRB + NEO_KHZ800);
+
+bool luzTravada = false;
+
+int lerLuzMedia() {
+  long soma = 0;
+
+  for (int i = 0; i < 10; i++) {
+    soma += analogRead(sensorLuz);
+    delay(5);
+  }
+
+  return soma / 10;
+}
+
+void setup() {
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  liberador.attach(8);
+  liberador.write(SEGURA);
+
+  fita.begin();
+  fita.clear();
+  fita.show();
+}
+
+void loop() {
+
+  int luz = lerLuzMedia();
+  Serial.println(luz);
+
+  if (!luzTravada && luz >= limiteLuz) {
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+      fita.setPixelColor(i, fita.Color(255, 70, 0)); // laranja
+    }
+    fita.show();
+
+    luzTravada = true;
+  }
+
+  // Bluetooth
+  if (BT.available()) {
+
+    String comando = BT.readStringUntil('\n');
+    comando.trim();
+
+    if (comando == "B") {
+
+      Serial.println("Soltando cubo");
+
+      liberador.write(SOLTA);
+      delay(2000);
+
+      liberador.write(SEGURA);
+    }
+  }
+}

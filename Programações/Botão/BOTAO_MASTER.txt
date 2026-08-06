@@ -1,0 +1,64 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial BT(10, 11);
+
+#define led 5
+#define btState 4
+
+const int STOP = 87;
+const int GIRA = 0;
+
+const int trigPin = 8;
+const int echoPin = 9;
+
+bool enviado = false;
+
+float distancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH);
+
+  return duracao * 0.034 / 2;
+}
+
+void setup() {
+  BT.begin(9600);
+  Serial.begin(9600);
+
+  pinMode(btState, INPUT);
+  pinMode(led, OUTPUT);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+}
+
+void loop() {
+
+  digitalWrite(led, digitalRead(btState));
+
+  float dist = distancia();
+
+  if (dist <= 5 && !enviado) {
+
+    if (digitalRead(btState) == HIGH) {
+      BT.write('A');
+      Serial.println("A enviado");
+    }
+
+    enviado = true;
+  }
+
+  // Libera novo envio quando o objeto sair
+  if (dist > 10) {
+    enviado = false;
+  }
+
+  delay(100);
+}
